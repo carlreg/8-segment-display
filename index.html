@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8位段码屏 · 教学演示 | 8-Segment LED Display</title>
+<style>
+  /* ============================================================
+     8位段码屏 教学展示页面
+     纯前端 · 单文件 · 无外部依赖
+     ============================================================ */
+  :root{
+    --bg:#050810;
+    --panel:rgba(16,24,42,.72);
+    --panel-brd:rgba(120,170,255,.16);
+    --txt:#e6eefc;
+    --txt-dim:#8fa4c4;
+    --cyan:#22d3ee;
+    --amber:#ffb020;
+    --on-a:#8effc8;
+    --on-b:#12e39a;
+    --on-glow:rgba(18,227,154,.85);
+    --off:#0b1220;
+    --off-brd:rgba(120,190,255,.13);
+    --radius:18px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    min-height:100%;
+    background:
+      radial-gradient(900px 600px at 12% -8%, rgba(34,211,238,.13), transparent 60%),
+      radial-gradient(900px 700px at 88% 0%, rgba(255,176,32,.10), transparent 55%),
+      radial-gradient(1200px 900px at 50% 120%, rgba(80,120,255,.12), transparent 60%),
+      var(--bg);
+    color:var(--txt);
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",-apple-system,system-ui,sans-serif;
+    padding:clamp(12px,2.2vw,30px);
+    -webkit-text-size-adjust:100%;
+  }
+  /* 背景网格 */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      linear-gradient(rgba(120,170,255,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120,170,255,.045) 1px, transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(circle at 50% 30%, #000 20%, transparent 78%);
+    -webkit-mask-image:radial-gradient(circle at 50% 30%, #000 20%, transparent 78%);
+  }
+  .wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto}
+
+  /* ---------------- 顶栏 ---------------- */
+  header{
+    display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;
+    margin-bottom:clamp(14px,2vw,22px);
+  }
+  .logo{
+    width:56px;height:56px;flex:0 0 auto;border-radius:15px;
+    background:linear-gradient(150deg,#0f1a30,#060b16);
+    border:1px solid var(--panel-brd);
+    display:grid;place-items:center;
+    box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .logo svg{width:34px;height:34px}
+  h1{
+    font-size:clamp(19px,2.6vw,30px);font-weight:800;letter-spacing:.4px;line-height:1.25;
+  }
+  h1 span{
+    background:linear-gradient(92deg,var(--cyan),#7dd3fc 45%,var(--amber));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .sub{color:var(--txt-dim);font-size:clamp(11.5px,1.3vw,14px);margin-top:5px;letter-spacing:.3px}
+  .badges{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .badge{
+    font-size:11.5px;padding:6px 11px;border-radius:999px;color:var(--txt-dim);
+    border:1px solid var(--panel-brd);background:rgba(255,255,255,.03);white-space:nowrap;
+  }
+  .badge b{color:var(--cyan);font-weight:700}
+
+  /* ---------------- 卡片 ---------------- */
+  .card{
+    background:var(--panel);
+    border:1px solid var(--panel-brd);
+    border-radius:var(--radius);
+    padding:clamp(14px,1.8vw,22px);
+    backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+    box-shadow:0 18px 44px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .card + .card{margin-top:clamp(14px,1.8vw,20px)}
+  .card-title{
+    display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:700;
+    letter-spacing:.5px;margin-bottom:14px;color:#dbe8ff;
+  }
+  .card-title i{
+    width:8px;height:8px;border-radius:2px;background:var(--cyan);
+    box-shadow:0 0 12px var(--cyan);flex:0 0 auto;
+  }
+  .card-title small{
+    margin-left:auto;font-weight:500;color:var(--txt-dim);font-size:11.5px;letter-spacing:0;
+  }
+  .grid{display:grid;gap:clamp(14px,1.8vw,20px)}
+  .grid.main{grid-template-columns:minmax(300px,0.95fr) minmax(340px,1.05fr);align-items:start}
+
+  /* ---------------- 屏体模块 ---------------- */
+  .module{
+    position:relative;
+    background:linear-gradient(168deg,#0d1628 0%,#070c17 55%,#04070e 100%);
+    border:1px solid rgba(140,190,255,.2);
+    border-radius:16px;
+    padding:clamp(18px,3vw,34px) clamp(16px,3vw,30px) clamp(14px,2.4vw,24px);
+    box-shadow:
+      0 22px 60px rgba(0,0,0,.65),
+      inset 0 1px 0 rgba(255,255,255,.07),
+      inset 0 -30px 60px rgba(0,0,0,.5);
+    overflow:hidden;
+  }
+  .module::after{ /* 玻璃反光 */
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(122deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.02) 26%, transparent 46%);
+    border-radius:inherit;
+  }
+  /* 电源指示灯 */
+  .power{
+    position:absolute;top:12px;right:14px;width:8px;height:8px;border-radius:50%;
+    background:#ff4d4d;box-shadow:0 0 10px #ff4d4d, 0 0 22px rgba(255,77,77,.6);
+    animation:blink 2.4s ease-in-out infinite;
+  }
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .screw{
+    position:absolute;width:9px;height:9px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #3a4a66, #131b2b);
+    border:1px solid rgba(255,255,255,.09);
+  }
+  .screw.tl{top:11px;left:12px}.screw.tr{top:11px;right:12px}
+  .screw.bl{bottom:11px;left:12px}.screw.br{bottom:11px;right:12px}
+  .module-glow{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(90%,560px);aspect-ratio:1;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle, var(--on-glow), transparent 62%);
+    opacity:.13;filter:blur(38px);transition:opacity .5s ease;z-index:0;
+  }
+  .module.hot .module-glow{opacity:.3}
+
+  /* ---------------- SVG 段码屏 ---------------- */
+  .digit-stage{position:relative;z-index:1;display:grid;place-items:center}
+  svg.digit{
+    width:min(100%,368px);height:auto;display:block;
+    filter:drop-shadow(0 0 1px rgba(0,0,0,.4));
+  }
+  .seg{
+    fill:var(--off);
+    stroke:var(--off-brd);
+    stroke-width:1.4;
+    transition:fill .22s ease, stroke .22s ease, filter .3s ease;
+  }
+  .seg.hit{fill:transparent;stroke:none;cursor:pointer}
+  /* 熄灭时的微弱“残影” */
+  .seg.on{
+    fill:url(#litGrad);
+    stroke:rgba(190,255,225,.55);
+  }
+  .seg.on.glow{filter:url(#segGlow)}
+  .dp-group circle.seg.dot{transition:fill .22s ease, stroke .22s ease, filter .3s ease}
+  .dp-group circle.seg.on{fill:url(#litGrad);stroke:rgba(190,255,225,.55)}
+
+  /* 扫描光带 */
+  .sweep{
+    position:absolute;inset:0;pointer-events:none;opacity:0;z-index:2;
+    background:linear-gradient(100deg,transparent 20%,rgba(180,255,230,.16) 50%,transparent 80%);
+    transform:translateX(-120%);
+  }
+  .sweep.go{animation:sweep .72s cubic-bezier(.2,.7,.2,1)}
+  @keyframes sweep{
+    0%{opacity:0;transform:translateX(-120%)}
+    18%{opacity:1}
+    100%{opacity:0;transform:translateX(120%)}
+  }
+
+  /* ---------------- 8 个小灯 ---------------- */
+  .lights{
+    display:grid;grid-template-columns:repeat(8,minmax(0,1fr));
+    gap:6px;margin-top:clamp(14px,2vw,20px);position:relative;z-index:1;
+  }
+  .light{
+    border:1px solid rgba(140,190,255,.14);
+    background:rgba(255,255,255,.028);
+    border-radius:11px;padding:9px 4px 8px;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    cursor:pointer;user-select:none;transition:background .2s, border-color .2s, transform .12s;
+  }
+  .light:hover{background:rgba(255,255,255,.06);border-color:rgba(140,190,255,.34)}
+  .light:active{transform:scale(.96)}
+  .light.on{background:rgba(18,227,154,.10);border-color:rgba(18,227,154,.45)}
+  .light:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .bulb{
+    width:15px;height:15px;border-radius:50%;
+    background:#0c1322;border:1px solid rgba(140,190,255,.22);
+    transition:background .2s, box-shadow .25s, border-color .2s;
+  }
+  .light.on .bulb{
+    background:radial-gradient(circle at 34% 30%, #ecfff7, var(--on-b) 62%, #069a68 100%);
+    border-color:rgba(190,255,225,.75);
+    box-shadow:0 0 9px var(--on-b), 0 0 20px rgba(18,227,154,.62);
+  }
+  .light.on .bulb.idle{animation:pulse 2.1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 9px var(--on-b),0 0 18px rgba(18,227,154,.5)}
+                   50%{box-shadow:0 0 13px var(--on-b),0 0 30px rgba(18,227,154,.85)}}
+  .light .nm{font-size:11.5px;font-weight:700;letter-spacing:.5px;color:#cfe0f7}
+  .light .bit{font-size:9.5px;color:var(--txt-dim);letter-spacing:.2px}
+  .light.on .nm{color:var(--on-a)}
+
+  /* ---------------- 读数条 ---------------- */
+  .readout{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));
+    gap:9px;margin-top:clamp(14px,2vw,18px);position:relative;z-index:1;
+  }
+  .ro{
+    background:rgba(4,9,18,.7);border:1px solid rgba(140,190,255,.14);
+    border-radius:11px;padding:8px 11px;min-width:0;
+  }
+  .ro .k{font-size:10px;color:var(--txt-dim);letter-spacing:.6px;text-transform:uppercase}
+  .ro .v{
+    font-family:ui-monospace,Consolas,"Cascadia Mono",monospace;
+    font-size:15px;font-weight:700;color:var(--cyan);margin-top:3px;
+    overflow-wrap:anywhere;line-height:1.3;
+  }
+  .ro .v.amber{color:var(--amber)}
+  .ro .v.green{color:var(--on-a)}
+
+  /* ---------------- 按钮 / 输入 ---------------- */
+  .keys{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;margin-top:6px}
+  .key{
+    font-family:ui-monospace,Consolas,monospace;font-size:15px;font-weight:700;
+    padding:11px 0;border-radius:10px;cursor:pointer;color:#dce9ff;
+    background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));
+    border:1px solid rgba(140,190,255,.19);
+    transition:transform .12s, box-shadow .2s, border-color .2s, color .2s;
+  }
+  .key:hover{border-color:rgba(34,211,238,.6);color:#fff;box-shadow:0 0 16px rgba(34,211,238,.26)}
+  .key:active{transform:translateY(2px) scale(.97)}
+  .key.active{background:linear-gradient(180deg,rgba(18,227,154,.3),rgba(18,227,154,.13));border-color:rgba(18,227,154,.7);color:#eafff6}
+  .key.letter{color:#ffd591}
+  .key.letter:hover{border-color:rgba(255,176,32,.6);box-shadow:0 0 16px rgba(255,176,32,.26)}
+
+  .field{display:flex;gap:8px;align-items:stretch;margin-top:4px}
+  input#numInput{
+    flex:1 1 auto;min-width:0;
+    background:rgba(4,9,18,.8);border:1px solid rgba(140,190,255,.22);
+    border-radius:11px;color:var(--on-a);
+    font-family:ui-monospace,Consolas,monospace;font-size:19px;font-weight:700;
+    letter-spacing:2px;padding:11px 14px;outline:none;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  input#numInput:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.16)}
+  input#numInput::placeholder{color:#4a5b76;font-weight:500;letter-spacing:.5px;font-size:14px}
+  .btn{
+    border-radius:11px;padding:11px 15px;cursor:pointer;font-size:13px;font-weight:700;
+    color:#dce9ff;background:rgba(255,255,255,.05);
+    border:1px solid rgba(140,190,255,.22);white-space:nowrap;
+    transition:transform .12s, box-shadow .2s, border-color .2s, color .2s;
+  }
+  .btn:hover{border-color:rgba(34,211,238,.6);color:#fff;box-shadow:0 0 16px rgba(34,211,238,.24)}
+  .btn:active{transform:translateY(2px) scale(.98)}
+  .btn.primary{background:linear-gradient(180deg,rgba(34,211,238,.28),rgba(34,211,238,.10));border-color:rgba(34,211,238,.55)}
+  .btn.warn:hover{border-color:rgba(255,120,120,.6);box-shadow:0 0 16px rgba(255,120,120,.25);color:#ffe3e3}
+
+  /* ---------------- 位开关 (位段映射) ---------------- */
+  .bits{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin-top:12px}
+  .bitcell{
+    border:1px solid rgba(140,190,255,.14);border-radius:10px;padding:8px 3px;
+    background:rgba(255,255,255,.025);cursor:pointer;text-align:center;
+    transition:background .18s,border-color .18s,transform .12s;
+  }
+  .bitcell:hover{background:rgba(255,255,255,.06)}
+  .bitcell:active{transform:scale(.95)}
+  .bitcell.on{background:rgba(34,211,238,.13);border-color:rgba(34,211,238,.5)}
+  .bitcell .d{font-size:10px;color:var(--txt-dim);font-family:ui-monospace,monospace}
+  .bitcell .s{font-size:13px;font-weight:800;margin-top:3px;color:#5d7192}
+  .bitcell.on .s{color:var(--cyan);text-shadow:0 0 12px rgba(34,211,238,.8)}
+  .bitcell .b{font-size:9.5px;color:#48597a;margin-top:2px}
+  .bitcell.on .b{color:#9fe9f7}
+
+  /* 单选（共阴/共阳） */
+  .segmented{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+  .segmented label{
+    display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;color:#c6d6ef;
+    border:1px solid rgba(140,190,255,.18);border-radius:10px;padding:9px 12px;
+    background:rgba(255,255,255,.03);transition:border-color .2s,background .2s;
+  }
+  .segmented label:hover{border-color:rgba(34,211,238,.45)}
+  .segmented input{accent-color:#22d3ee;cursor:pointer}
+  .segmented label:has(input:checked){border-color:rgba(18,227,154,.55);background:rgba(18,227,154,.10)}
+
+  .hint{font-size:11.5px;color:var(--txt-dim);line-height:1.85;margin-top:10px}
+  .hint kbd{
+    font-family:ui-monospace,Consolas,monospace;font-size:11px;
+    background:rgba(255,255,255,.07);border:1px solid rgba(140,190,255,.2);
+    border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:#dbe8ff;
+  }
+  .hint b{color:#cfe0f7}
+  .warnbox{
+    font-size:12.5px;color:#ffdca8;background:rgba(255,176,32,.09);
+    border:1px solid rgba(255,176,32,.28);border-radius:11px;padding:10px 13px;line-height:1.7;margin-top:10px;
+  }
+
+  /* ---------------- 真值表 ---------------- */
+  .table-scroll{overflow-x:auto;margin:0 -4px;padding:0 4px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:660px}
+  th,td{padding:8px 7px;text-align:center;border-bottom:1px solid rgba(140,190,255,.10);white-space:nowrap}
+  th{
+    font-size:11px;color:var(--txt-dim);font-weight:600;letter-spacing:.5px;
+    position:sticky;top:0;background:rgba(10,16,29,.96);z-index:1;
+  }
+  th.hexh{color:var(--amber)}
+  tbody tr{transition:background .18s}
+  tbody tr:hover{background:rgba(34,211,238,.07)}
+  tbody tr.cur{background:rgba(18,227,154,.13);box-shadow:inset 3px 0 0 var(--on-b)}
+  td.glyph{
+    font-family:ui-monospace,Consolas,monospace;font-size:17px;font-weight:800;color:#eaf3ff;
+    background:linear-gradient(180deg,rgba(255,255,255,.05),transparent);border-radius:7px;
+  }
+  td.hex{
+    font-family:ui-monospace,Consolas,monospace;font-weight:800;color:var(--amber);font-size:14px;
+  }
+  td.bin{font-family:ui-monospace,Consolas,monospace;color:#9fb4d4;letter-spacing:.4px}
+  .segchip{
+    display:inline-grid;place-items:center;width:19px;height:19px;border-radius:5px;
+    font-family:ui-monospace,monospace;font-size:11px;font-weight:700;
+    border:1px solid rgba(140,190,255,.18);color:#5d7192;background:rgba(255,255,255,.02);
+  }
+  .segchip.on{background:rgba(18,227,154,.22);border-color:rgba(18,227,154,.62);color:var(--on-a);box-shadow:0 0 9px rgba(18,227,154,.35)}
+  td.mini-dot{color:#5d7192}
+
+  /* ---------------- 二维码 ---------------- */
+  .qr-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:clamp(16px,2.4vw,26px);align-items:start}
+  .qr-box{
+    background:#fff;border-radius:14px;padding:12px;line-height:0;
+    box-shadow:0 14px 40px rgba(0,0,0,.55);
+  }
+  #qrCanvas{display:block;width:232px;height:232px;image-rendering:pixelated}
+  .qr-meta{min-width:0}
+  .qr-url{
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--cyan);
+    background:rgba(4,9,18,.75);border:1px solid rgba(140,190,255,.18);border-radius:10px;
+    padding:10px 12px;overflow-wrap:anywhere;line-height:1.55;
+  }
+  .tips{font-size:12px;color:var(--txt-dim);line-height:1.95;margin-top:12px;list-style:none}
+  .tips li{padding-left:19px;position:relative}
+  .tips li::before{content:"▸";position:absolute;left:0;color:var(--cyan)}
+  .tips b{color:#cfe0f7}
+
+  footer{
+    text-align:center;color:#5d7192;font-size:11.5px;line-height:2;
+    padding:22px 10px 8px;letter-spacing:.3px;
+  }
+  footer b{color:#8fa4c4}
+
+  /* ---------------- 响应式 ---------------- */
+  @media (max-width:900px){
+    .grid.main{grid-template-columns:1fr}
+    .badges{margin-left:0;width:100%}
+  }
+  @media (max-width:640px){
+    .lights{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .keys{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .bits{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .qr-grid{grid-template-columns:1fr;justify-items:center;text-align:center}
+    .qr-meta{width:100%;text-align:left}
+    #qrCanvas{width:200px;height:200px}
+    table{font-size:11.5px;min-width:600px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.06s !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= 顶栏 ================= -->
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <rect x="14" y="6"  width="72" height="16" rx="8" fill="#22d3ee" opacity=".92"/>
+        <rect x="14" y="42" width="72" height="16" rx="8" fill="#22d3ee" opacity=".92"/>
+        <rect x="14" y="78" width="72" height="16" rx="8" fill="#ffb020" opacity=".92"/>
+        <rect x="0"  y="14" width="16" height="40" rx="8" fill="#22d3ee" opacity=".55"/>
+        <rect x="84" y="14" width="16" height="40" rx="8" fill="#22d3ee" opacity=".55"/>
+        <rect x="0"  y="54" width="16" height="40" rx="8" fill="#ffb020" opacity=".55"/>
+        <rect x="84" y="54" width="16" height="40" rx="8" fill="#ffb020" opacity=".55"/>
+      </svg>
+    </div>
+    <div>
+      <h1><span>8 位段码屏 · 交互教学演示</span></h1>
+      <div class="sub">8-Segment LED Display · 输入数字 → 实时点亮对应笔画 · 8 个小灯可见每一段的亮灭</div>
+    </div>
+    <div class="badges">
+      <div class="badge">显示字符 <b id="bgGlyph">8.</b></div>
+      <div class="badge">点亮段 <b id="bgCount">7</b>/8</div>
+      <div class="badge">共阴码 <b id="bgHex">0x7F</b></div>
+    </div>
+  </header>
+
+  <!-- ================= 主区 ================= -->
+  <div class="grid main">
+
+    <!-- ---------- 左：屏体 ---------- -->
+    <section class="card" style="padding:clamp(12px,1.5vw,16px)">
+      <div class="module" id="module">
+        <div class="screw tl"></div><div class="screw tr"></div>
+        <div class="screw bl"></div><div class="screw br"></div>
+        <div class="power" title="电源指示"></div>
+        <div class="module-glow" id="moduleGlow"></div>
+
+        <div class="digit-stage">
+          <svg class="digit" id="digitSvg" viewBox="0 0 200 340" role="img"
+               aria-label="八段数码管显示图形" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="litGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#b9ffe0"/>
+                <stop offset="45%"  stop-color="#22e79f"/>
+                <stop offset="100%" stop-color="#0bbd7f"/>
+              </linearGradient>
+              <filter id="segGlow" x="-70%" y="-70%" width="240%" height="240%">
+                <feGaussianBlur stdDeviation="6" result="b1"/>
+                <feGaussianBlur stdDeviation="2.4" result="b2"/>
+                <feMerge>
+                  <feMergeNode in="b1"/><feMergeNode in="b1"/>
+                  <feMergeNode in="b2"/><feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <!-- 段由 JS 生成 -->
+            <g id="segLayer"></g>
+          </svg>
+        </div>
+        <div class="sweep" id="sweep"></div>
+
+        <!-- 8 个小灯 -->
+        <div class="lights" id="lights"></div>
+      </div>
+
+      <div class="readout">
+        <div class="ro"><div class="k">当前字符</div><div class="v green" id="roGlyph">8.</div></div>
+        <div class="ro"><div class="k">段码 (二进制)</div><div class="v" id="roBin">0b01111111</div></div>
+        <div class="ro"><div class="k">共阴段码 (Hex)</div><div class="v amber" id="roHex">0x7F</div></div>
+        <div class="ro"><div class="k">共阳段码 (Hex)</div><div class="v amber" id="roHexA">0x80</div></div>
+      </div>
+    </section>
+
+    <!-- ---------- 右：控制 ---------- -->
+    <div>
+      <section class="card">
+        <div class="card-title"><i></i>① 输入数字 → 显示对应 <small>键盘 0-9 &nbsp;/&nbsp; A-F</small></div>
+        <div class="field">
+          <input id="numInput" type="text" inputmode="numeric" autocomplete="off"
+                 maxlength="24" placeholder="输入数字，如 2025 或 3.14">
+          <button class="btn primary" id="btnShow">显示</button>
+          <button class="btn warn" id="btnClear">清零</button>
+        </div>
+        <div class="keys" id="keys" style="margin-top:11px"></div>
+        <div class="hint">
+          <b>输入规则</b>：可输入 <kbd>0-9</kbd> <kbd>A-F</kbd> 和 <kbd>.</kbd>（小数点）。
+          屏体一次显示 <b>1 个字符</b>，多字符输入时按 <kbd>←</kbd> <kbd>→</kbd> 逐位查看，
+          或点击 <kbd>▶ 自动播放</kbd> 轮播。
+        </div>
+        <div class="field" style="margin-top:11px">
+          <input id="seqInput" type="text" autocomplete="off"
+                 placeholder="多字符序列（如 8.8.8.8 或 2025-01-01）" style="font-size:14px;letter-spacing:.5px">
+          <button class="btn" id="btnPrev">◀</button>
+          <button class="btn" id="btnPlay">▶ 自动播放</button>
+          <button class="btn" id="btnNext">▶</button>
+        </div>
+        <div class="hint" style="margin-top:8px">当前位置：<b id="seqPos">—</b></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title"><i style="background:var(--amber);box-shadow:0 0 12px var(--amber)"></i>② 8 个小灯：逐段控制 <small>点击小灯 或 点击屏体笔画</small></div>
+        <div class="bits" id="bitCells"></div>
+        <div class="hint" style="margin-top:12px">
+          <b>位段对应</b>：DP→bit7，g→bit6，f→bit5，e→bit4，d→bit3，c→bit2，b→bit1，a→bit0。
+          段码值就是这 8 个灯的开关状态按位组成的字节。
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title"><i style="background:#a78bfa;box-shadow:0 0 12px #a78bfa"></i>③ 驱动方式：共阴 / 共阳 <small>观察电平取反</small></div>
+        <div class="segmented">
+          <label><input type="radio" name="drive" value="cc" checked>共阴极（段码 1 = 亮）</label>
+          <label><input type="radio" name="drive" value="ca">共阳极（段码 0 = 亮）</label>
+        </div>
+        <div class="readout" style="margin-top:12px">
+          <div class="ro"><div class="k">字形码 / 段码</div><div class="v amber" id="roDrive">0x7F</div></div>
+          <div class="ro"><div class="k">送往段引脚</div><div class="v" id="roPort">DP g f e d c b a</div></div>
+          <div class="ro"><div class="k">对应逻辑</div><div class="v" id="roLogic">1 点亮</div></div>
+        </div>
+        <div class="hint" style="margin-top:11px">
+          共阴：公共端接 GND，段引脚给<b>高电平</b>点亮，段码位 1 = 亮（<b>共阴码</b>）；<br>
+          共阳：公共端接 VCC，段引脚给<b>低电平</b>点亮，段码位 0 = 亮（<b>共阳码</b> = 共阴码按位取反）。
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ================= 真值表 ================= -->
+  <section class="card" style="margin-top:clamp(14px,1.8vw,20px)">
+    <div class="card-title">
+      <i></i>④ 段码真值表 <small>高亮行 = 当前显示</small>
+    </div>
+    <div class="table-scroll">
+      <table id="truthTable">
+        <thead>
+          <tr>
+            <th>字符</th><th class="hexh">共阴 Hex</th><th>共阴二进制 (DP g f e d c b a)</th>
+            <th>a</th><th>b</th><th>c</th><th>d</th><th>e</th><th>f</th><th>g</th><th>DP</th>
+          </tr>
+        </thead>
+        <tbody id="truthBody"></tbody>
+      </table>
+    </div>
+    <div class="hint" style="margin-top:12px">
+      <b>段码速记</b>：a=bit0 … g=bit6、DP=bit7。例如 <b>0</b> = a+b+c+d+e+f = <b>0x3F</b>；
+      <b>1</b> = b+c = <b>0x06</b>；<b>8</b> = 全部 7 段 = <b>0x7F</b>（俗称“8 字全亮”）；
+      再加 DP 就是 <b>0xFF</b>，即 8 个灯全亮。
+    </div>
+  </section>
+
+  <!-- ================= 二维码 ================= -->
+  <section class="card" style="margin-top:clamp(14px,1.8vw,20px)">
+    <div class="card-title"><i style="background:#34d399;box-shadow:0 0 12px #34d399"></i>⑤ 扫码访问本页面 <small>手机扫一扫即可打开</small></div>
+    <div class="qr-grid">
+      <div class="qr-box"><canvas id="qrCanvas" width="232" height="232" aria-label="本页面二维码"></canvas></div>
+      <div class="qr-meta">
+        <div class="card-title" style="margin-bottom:8px;font-size:12.5px;color:var(--txt-dim);font-weight:600">二维码内容（本页地址）</div>
+        <div class="qr-url" id="qrUrl">正在生成…</div>
+        <ul class="tips">
+          <li>若在本机打开：手机需与本机连同一个 <b>Wi-Fi</b>，扫码即可访问。</li>
+          <li>若已部署到 <b>GitHub Pages</b>：二维码指向公网地址，任何人都能扫。</li>
+          <li>可用页面上方网址栏手动改为 <b>公网地址</b> 后重新生成二维码。</li>
+        </ul>
+        <div class="field" style="margin-top:12px">
+          <input id="qrText" type="text" placeholder="自定义二维码内容（默认当前网址）" style="font-size:13px;letter-spacing:.3px">
+          <button class="btn primary" id="btnQr">重新生成</button>
+          <button class="btn" id="btnQrReset">恢复默认</button>
+          <button class="btn" id="btnQrDl">下载 PNG</button>
+        </div>
+        <div class="hint" style="margin-top:8px" id="qrNote">二维码由本页内置算法实时生成，<b>不联网、不依赖第三方库</b>。</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <b>8 位段码屏教学演示</b> · 单文件 HTML · 纯前端零依赖 · 段码 0x00–0xFF 全覆盖<br>
+    已覆盖：① 8 个小灯逐段控制 &nbsp;② 输入数字实时显示 &nbsp;③ 共阴/共阳对照 &nbsp;④ 段码真值表 &nbsp;⑤ 二维码分享
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ================================================================
+   1) 八段定义：a b c d e f g + DP(小数点)  —— 共 8 段 = 8 个小灯
+   位序：a=bit0 b=bit1 c=bit2 d=bit3 e=bit4 f=bit5 g=bit6 DP=bit7
+   ================================================================ */
+var SEGMENTS = [
+  { id:'a',  bit:0, label:'a',  cn:'上横',   type:'rect', x:66, y:22,  w:68, h:24, r:12 },
+  { id:'b',  bit:1, label:'b',  cn:'右上竖', type:'rect', x:148,y:56,  w:24, h:84, r:12 },
+  { id:'c',  bit:2, label:'c',  cn:'右下竖', type:'rect', x:148,y:186, w:24, h:84, r:12 },
+  { id:'d',  bit:3, label:'d',  cn:'下横',   type:'rect', x:66, y:304, w:68, h:24, r:12 },
+  { id:'e',  bit:4, label:'e',  cn:'左下竖', type:'rect', x:28, y:186, w:24, h:84, r:12 },
+  { id:'f',  bit:5, label:'f',  cn:'左上竖', type:'rect', x:28, y:56,  w:24, h:84, r:12 },
+  { id:'g',  bit:6, label:'g',  cn:'中横',   type:'rect', x:66, y:162, w:68, h:24, r:12 },
+  { id:'DP', bit:7, label:'DP', cn:'小数点', type:'dot',  cx:170,cy:302, rr:13 }
+];
+
+/* 0-9 A-F 的共阴段码（bit0=a … bit7=DP） */
+var FONT = {
+  '0':0x3F,'1':0x06,'2':0x5B,'3':0x4F,'4':0x66,'5':0x6D,'6':0x7D,'7':0x07,
+  '8':0x7F,'9':0x6F,'A':0x77,'B':0x7C,'C':0x39,'D':0x5E,'E':0x79,'F':0x71,
+  'H':0x76,'L':0x38,'P':0x73,'U':0x3E,'-':0x40,'_':0x08,' ':0x00
+};
+var ORDER = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'];
+
+/* ================================================================
+   2) 状态
+   ================================================================ */
+var state = {
+  value: 0x7F,      // 8 位段码（共阴语义：1 = 亮）
+  drive: 'cc',      // cc = 共阴, ca = 共阳
+  seq: '',          // 多字符序列
+  pos: 0,
+  playing: false,
+  timer: null
+};
+var $ = function(id){ return document.getElementById(id); };
+
+/* ================================================================
+   3) 生成屏体段图形 + 8 个小灯
+   ================================================================ */
+var SVGNS = 'http://www.w3.org/2000/svg';
+var segEls = {}, hitEls = {};
+
+function buildDisplay(){
+  var layer = $('segLayer');
+  SEGMENTS.forEach(function(s){
+    var shape;
+    if (s.type === 'rect'){
+      shape = document.createElementNS(SVGNS,'rect');
+      shape.setAttribute('x',s.x); shape.setAttribute('y',s.y);
+      shape.setAttribute('width',s.w); shape.setAttribute('height',s.h);
+      shape.setAttribute('rx',s.r); shape.setAttribute('ry',s.r);
+    } else {
+      shape = document.createElementNS(SVGNS,'circle');
+      shape.setAttribute('cx',s.cx); shape.setAttribute('cy',s.cy); shape.setAttribute('r',s.rr);
+    }
+    shape.setAttribute('class','seg');
+    shape.setAttribute('data-seg',s.id);
+    segEls[s.id] = shape;
+
+    /* 透明热区：点击屏体笔画即可切换该段 */
+    var hit;
+    if (s.type === 'rect'){
+      hit = document.createElementNS(SVGNS,'rect');
+      hit.setAttribute('x',s.x-9); hit.setAttribute('y',s.y-9);
+      hit.setAttribute('width',s.w+18); hit.setAttribute('height',s.h+18);
+      hit.setAttribute('rx',s.r+7); hit.setAttribute('ry',s.r+7);
+    } else {
+      hit = document.createElementNS(SVGNS,'circle');
+      hit.setAttribute('cx',s.cx); hit.setAttribute('cy',s.cy); hit.setAttribute('r',s.rr+10);
+    }
+    hit.setAttribute('class','seg hit');
+    hit.setAttribute('data-hit',s.id);
+    hit.addEventListener('click', function(){ toggleBit(s.bit, true); });
+    hitEls[s.id] = hit;
+
+    /* 竖段画在横段之下，交界更自然 */
+    layer.appendChild(hit);
+    layer.appendChild(shape);
+  });
+}
+
+function buildLights(){
+  var box = $('lights'), hb = $('bitCells');
+  SEGMENTS.forEach(function(s){
+    /* ① 8 个小灯 */
+    var d = document.createElement('div');
+    d.className = 'light';
+    d.setAttribute('role','switch');
+    d.setAttribute('tabindex','0');
+    d.setAttribute('data-light',s.id);
+    d.title = '段 ' + s.label + '（' + s.cn + '）· 位 bit' + s.bit;
+    d.innerHTML = '<div class="bulb idle"></div><div class="nm">' + s.label + '</div>' +
+                  '<div class="bit">bit' + s.bit + '</div>';
+    d.addEventListener('click', function(){ toggleBit(s.bit, true); });
+    d.addEventListener('keydown', function(e){
+      if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleBit(s.bit, true); }
+    });
+    box.appendChild(d);
+
+    /* 位开关 */
+    var c = document.createElement('div');
+    c.className = 'bitcell';
+    c.setAttribute('data-bitcell',s.id);
+    c.title = '切换 bit' + s.bit + '（段 ' + s.label + '）';
+    c.innerHTML = '<div class="d">d' + s.bit + '</div><div class="s">' + s.label + '</div><div class="b">bit' + s.bit + '</div>';
+    c.addEventListener('click', function(){ toggleBit(s.bit, true); });
+    hb.appendChild(c);
+  });
+}
+
+/* ================================================================
+   4) 渲染
+   ================================================================ */
+var lastValue = -1;
+
+function render(animate){
+  var v = state.value;
+  var changed = (v !== lastValue);
+  lastValue = v;
+
+  /* 屏体段 */
+  SEGMENTS.forEach(function(s){
+    var lit = !!(v & (1 << s.bit));      // 共阴语义：位为 1 = 亮
+    var el = segEls[s.id];
+    el.classList.toggle('on', lit);
+    el.classList.toggle('glow', lit);
+    var hit = hitEls[s.id];
+    if (hit) hit.setAttribute('aria-pressed', lit ? 'true' : 'false');
+  });
+
+  /* 8 个小灯 */
+  var lights = $('lights').children;
+  SEGMENTS.forEach(function(s,i){
+    var lit = !!(v & (1 << s.bit));
+    lights[i].classList.toggle('on', lit);
+    lights[i].setAttribute('aria-checked', lit ? 'true' : 'false');
+  });
+
+  /* 位开关 */
+  var cells = $('bitCells').children;
+  SEGMENTS.forEach(function(s,i){
+    var lit = !!(v & (1 << s.bit));
+    cells[i].classList.toggle('on', lit);
+  });
+
+  /* 读数 */
+  var glyph = glyphOf(v);
+  var bin = '0b' + v.toString(2).padStart(8,'0');
+  var portBits = SEGMENTS.map(function(s){ return (v & (1<<s.bit)) ? 1 : 0; }).reverse(); // d7..d0
+  var cc = v, ca = (~v) & 0xFF;
+
+  $('roGlyph').textContent = glyph;
+  $('roBin').textContent   = bin;
+  $('roHex').textContent   = '0x' + cc.toString(16).toUpperCase().padStart(2,'0');
+  $('roHexA').textContent  = '0x' + ca.toString(16).toUpperCase().padStart(2,'0');
+
+  var shown = (state.drive === 'cc') ? cc : ca;
+  $('roDrive').textContent = '0x' + shown.toString(16).toUpperCase().padStart(2,'0');
+  $('roPort').textContent  = 'DP g f e d c b a = ' + portBits.join('');
+  $('roLogic').textContent = (state.drive === 'cc') ? '1 点亮（共阴）' : '0 点亮（共阳）';
+
+  /* 顶部徽标 */
+  var litCount = SEGMENTS.filter(function(s){ return v & (1<<s.bit); }).length;
+  $('bgGlyph').textContent = glyph;
+  $('bgCount').textContent = litCount;
+  $('bgHex').textContent   = '0x' + cc.toString(16).toUpperCase().padStart(2,'0');
+
+  /* 模块氛围光 */
+  $('module').classList.toggle('hot', litCount > 0);
+
+  /* 真值表高亮 */
+  markTruth(v);
+
+  /* 字形扫描动画 */
+  if (changed && animate !== false) sweep();
+}
+
+function glyphOf(v){
+  for (var k in FONT){ if (FONT[k] === v) return k; }
+  return '?';
+}
+
+function sweep(){
+  var el = $('sweep');
+  el.classList.remove('go');
+  void el.offsetWidth;          /* 重启动画 */
+  el.classList.add('go');
+}
+
+/* ================================================================
+   5) 交互
+   ================================================================ */
+function setValue(v, animate){
+  state.value = (v & 0xFF);
+  render(animate);
+}
+
+function toggleBit(bit, animate){
+  state.value = state.value ^ (1 << bit);
+  stopPlay();
+  state.seq = '';               /* 手动改段后脱离序列 */
+  $('seqPos').textContent = '手动模式';
+  render(animate);
+}
+
+function charCode(ch){
+  if (ch === '.') return 0x80;          /* 小数点：只点亮 DP */
+  return (ch in FONT) ? FONT[ch] : 0x00;
+}
+
+/* 输入框：只保留合法字符，实时显示第一个字符 */
+function sanitize(str){
+  return (str || '').toUpperCase().replace(/[^0-9A-F.\-]/g,'');
+}
+
+function showString(str, animate){
+  var s = sanitize(str);
+  state.seq = s;
+  state.pos = 0;
+  $('seqInput').value = s;
+  if (!s.length){ return; }
+  setValue(charCode(s[0]), animate);
+  updatePos();
+}
+
+function updatePos(){
+  if (!state.seq){
+    $('seqPos').textContent = '手动模式（未载入序列）';
+    return;
+  }
+  $('seqPos').textContent = '第 ' + (state.pos+1) + ' / ' + state.seq.length + ' 位 → “' +
+                            (state.seq[state.pos] === '.' ? '·' : state.seq[state.pos]) + '”';
+}
+
+function stepSeq(dir){
+  if (!state.seq) { showString($('seqInput').value || $('numInput').value, true); return; }
+  if (!state.seq.length) return;
+  state.pos = (state.pos + dir + state.seq.length) % state.seq.length;
+  var ch = state.seq[state.pos];
+  setValue(charCode(ch), true);
+  updatePos();
+}
+
+function playSeq(){
+  if (state.playing) { stopPlay(); return; }
+  if (!state.seq) showString($('seqInput').value || $('numInput').value, true);
+  if (!state.seq) return;
+  state.playing = true;
+  $('btnPlay').textContent = '⏸ 暂停';
+  state.timer = setInterval(function(){ stepSeq(1); }, 700);
+}
+function stopPlay(){
+  if (state.timer) clearInterval(state.timer);
+  state.timer = null;
+  state.playing = false;
+  var b = $('btnPlay'); if (b) b.textContent = '▶ 自动播放';
+}
+
+/* ================================================================
+   6) 真值表
+   ================================================================ */
+function buildTable(){
+  var tb = $('truthBody');
+  ORDER.forEach(function(ch){
+    var code = FONT[ch];
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-char',ch);
+    tr.setAttribute('data-code',code);
+
+    var cells = '<td class="glyph">' + ch + '</td>' +
+                '<td class="hex">0x' + code.toString(16).toUpperCase().padStart(2,'0') + '</td>' +
+                '<td class="bin">' + code.toString(2).padStart(8,'0') + '</td>';
+    SEGMENTS.forEach(function(s){
+      var on = !!(code & (1 << s.bit));
+      cells += '<td><span class="segchip' + (on ? ' on' : '') + '">' + s.label + '</span></td>';
+    });
+    tr.innerHTML = cells;
+    tr.addEventListener('click', function(){
+      stopPlay();
+      state.seq = '';
+      setValue(code, true);
+      $('seqPos').textContent = '手动模式';
+    });
+    tb.appendChild(tr);
+  });
+}
+function markTruth(v){
+  var rows = $('truthBody').children;
+  for (var i=0;i<rows.length;i++){
+    rows[i].classList.toggle('cur', Number(rows[i].getAttribute('data-code')) === v);
+  }
+}
+
+/* ================================================================
+   7) 键盘 0-9 A-F
+   ================================================================ */
+function buildKeys(){
+  var box = $('keys');
+  ORDER.forEach(function(ch){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'key' + (/[A-F]/.test(ch) ? ' letter' : '');
+    b.textContent = ch;
+    b.addEventListener('click', function(){
+      stopPlay();
+      state.seq = '';
+      $('seqPos').textContent = '手动模式';
+      setValue(FONT[ch], true);
+      flashKey(ch);
+    });
+    box.appendChild(b);
+  });
+  /* 小数点键 */
+  var dot = document.createElement('button');
+  dot.type = 'button'; dot.className = 'key'; dot.textContent = '.';
+  dot.title = '只点亮 DP（小数点）';
+  dot.addEventListener('click', function(){
+    stopPlay(); state.seq = ''; setValue(0x80, true);
+    $('seqPos').textContent = '手动模式';
+  });
+  box.appendChild(dot);
+}
+function flashKey(ch){
+  var ks = $('keys').children;
+  for (var i=0;i<ks.length;i++){
+    if (ks[i].textContent === ch){
+      ks[i].classList.add('active');
+      setTimeout(function(el){ return function(){ el.classList.remove('active'); }; }(ks[i]), 320);
+    }
+  }
+}
+
+/* ================================================================
+   8) 二维码生成器（内置实现，无第三方库）
+      Byte 模式 · 纠错等级 M · 版本 1-10 自动
+   ================================================================ */
+var QR = (function(){
+  var EXP = new Array(512), LOG = new Array(256);
+  (function(){
+    var x = 1;
+    for (var i=0;i<255;i++){
+      EXP[i] = x;
+      LOG[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11D;      /* 本原多项式 x^8+x^4+x^3+x^2+1 */
+    }
+    for (var j=255;j<512;j++) EXP[j] = EXP[j-255];
+  })();
+  function mul(a,b){ if(!a||!b) return 0; return EXP[LOG[a]+LOG[b]]; }
+
+  /* [总码字数, 数据码字数] ，纠错等级 M —— 与 ISO/IEC 18004 表一致 */
+  var VERS = {
+    1:[26,16], 2:[44,28], 3:[70,44], 4:[100,64], 5:[134,86],
+    6:[172,108], 7:[196,124], 8:[242,154], 9:[292,182], 10:[346,216]
+  };
+  var ECB = {
+    1:[[1,16]], 2:[[1,28]], 3:[[1,44]], 4:[[2,32]], 5:[[2,43]],
+    6:[[4,27]], 7:[[4,31]], 8:[[2,38],[2,39]], 9:[[3,36],[2,37]], 10:[[4,43],[1,44]]
+  };
+  var ALIGN = {
+    1:[], 2:[6,18], 3:[6,22], 4:[6,26], 5:[6,30],
+    6:[6,34], 7:[6,22,38], 8:[6,24,42], 9:[6,26,46], 10:[6,28,50]
+  };
+  var ECL_M = 0;                      /* 00 = M */
+
+  function utf8Bytes(str){
+    var out = [], i, c;
+    for (i=0;i<str.length;i++){
+      c = str.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800){ out.push(0xC0 | (c>>6), 0x80 | (c & 63)); }
+      else if (c >= 0xD800 && c <= 0xDBFF && i+1 < str.length){
+        var c2 = str.charCodeAt(++i);
+        var cp = 0x10000 + ((c & 0x3FF) << 10) + (c2 & 0x3FF);
+        out.push(0xF0 | (cp>>18), 0x80 | ((cp>>12)&63), 0x80 | ((cp>>6)&63), 0x80 | (cp&63));
+      } else { out.push(0xE0 | (c>>12), 0x80 | ((c>>6)&63), 0x80 | (c&63)); }
+    }
+    return out;
+  }
+  /* Byte 模式的字符数指示符宽度：v1-9 为 8 位，v10 及以上为 16 位 */
+  function countBits(ver){ return ver <= 9 ? 8 : 16; }
+  /* 选择最小可用版本；返回 0 表示内容超出 v10 容量（Byte 模式 216 字节） */
+  function pickVersion(len){
+    for (var v=1; v<=10; v++){
+      if (4 + countBits(v) + len * 8 <= VERS[v][1] * 8) return v;
+    }
+    return 0;
+  }
+  function rsDivisor(deg){
+    var poly = [1];
+    for (var i=0;i<deg;i++){
+      var np = new Array(poly.length+1); np.fill(0);
+      for (var j=0;j<poly.length;j++){
+        np[j] ^= mul(poly[j], 1);
+        np[j+1] ^= mul(poly[j], EXP[i]);
+      }
+      poly = np;
+    }
+    return poly;
+  }
+  function rsEncode(data, ecLen){
+    var gen = rsDivisor(ecLen);
+    var res = new Array(ecLen); res.fill(0);
+    for (var i=0;i<data.length;i++){
+      var factor = data[i] ^ res[0];
+      res.shift(); res.push(0);
+      if (factor){
+        for (var j=0;j<ecLen;j++) res[j] ^= mul(gen[j+1], factor);
+      }
+    }
+    return res;
+  }
+
+  function build(str){
+    var bytes = utf8Bytes(str);
+    var ver = pickVersion(bytes.length);
+    if (!ver) throw new Error('TOO_LONG');    /* 内容超出本生成器容量(v10 / 216 字节) */
+    var dataBytes = VERS[ver][1], totalBytes = VERS[ver][0];
+    var ecTotal = totalBytes - dataBytes;
+
+    /* --- 位流 --- */
+    var bits = [];
+    function put(val, len){ for (var i=len-1;i>=0;i--) bits.push((val>>i)&1); }
+    put(4, 4);                       /* 0100 = Byte 模式 */
+    put(bytes.length, countBits(ver));
+    bytes.forEach(function(b){ put(b, 8); });
+
+    var cap = dataBytes * 8;
+    for (var t=0; t<4 && bits.length < cap; t++) bits.push(0);   /* 终止符 */
+    while (bits.length % 8) bits.push(0);
+    var dataCw = [];
+    for (var i=0;i<bits.length;i+=8){
+      var by = 0;
+      for (var j=0;j<8;j++) by = (by<<1) | bits[i+j];
+      dataCw.push(by);
+    }
+    var pad = [0xEC, 0x11], p = 0;
+    while (dataCw.length < dataBytes) dataCw.push(pad[p++ % 2]);
+
+    /* --- 分块 + RS --- */
+    var groups = ECB[ver], ecPerBlock = ecTotal / groups.reduce(function(a,g){ return a+g[0]; },0);
+    var blocks = [], dataBlocks = [], ecBlocks = [], off = 0;
+    groups.forEach(function(g){
+      for (var n=0;n<g[0];n++){
+        var db = dataCw.slice(off, off + g[1]); off += g[1];
+        dataBlocks.push(db);
+        ecBlocks.push(rsEncode(db, ecPerBlock));
+      }
+    });
+    var maxD = Math.max.apply(null, dataBlocks.map(function(b){ return b.length; }));
+    for (var c=0;c<maxD;c++){
+      dataBlocks.forEach(function(b){ if (c < b.length) blocks.push(b[c]); });
+    }
+    for (var c2=0;c2<ecPerBlock;c2++){
+      ecBlocks.forEach(function(b){ blocks.push(b[c2]); });
+    }
+
+    /* --- 矩阵 --- */
+    var size = ver * 4 + 17;
+    var m = [], fn = [];             /* m: 值, fn: 是否为功能图形 */
+    for (var r=0;r<size;r++){
+      m.push(new Array(size).fill(0));
+      fn.push(new Array(size).fill(false));
+    }
+    function setF(r,c,v){ if (r<0||c<0||r>=size||c>=size) return; m[r][c] = v; fn[r][c] = true; }
+    function finder(r0,c0){
+      for (var r=-1;r<=7;r++){
+        for (var c=-1;c<=7;c++){
+          if (r<0||c<0||r>6||c>6) { setF(r0+r,c0+c,0); continue; }
+          var on = (r===0||r===6||c===0||c===6||(r>=2&&r<=4&&c>=2&&c<=4));
+          setF(r0+r,c0+c,on?1:0);
+        }
+      }
+    }
+    function align(cx,cy){
+      for (var r=-2;r<=2;r++){
+        for (var c=-2;c<=2;c++){
+          var on = (Math.max(Math.abs(r),Math.abs(c)) !== 1);
+          setF(cy+r,cx+c,on?1:0);
+        }
+      }
+    }
+    function fmtInfo(mask){
+      var data = (ECL_M << 3) | mask;
+      var rem = data;
+      for (var i=0;i<10;i++) rem = (rem << 1) ^ ((rem >> 9) * 0x537);
+      var bitsF = ((data << 10) | rem) ^ 0x5412;
+      for (var i2=0;i2<=5;i2++)  setF(i2, 8, (bitsF >> i2) & 1);
+      setF(7,8,(bitsF>>6)&1); setF(8,8,(bitsF>>7)&1); setF(8,7,(bitsF>>8)&1);
+      for (var j=9;j<15;j++)     setF(8, 14-j, (bitsF>>j)&1);
+      for (var k=0;k<8;k++)      setF(8, size-1-k, (bitsF>>k)&1);
+      for (var l=8;l<15;l++)     setF(size-15+l, 8, (bitsF>>l)&1);
+      setF(size-8, 8, 1);
+    }
+    function versionInfo(){
+      if (ver < 7) return;
+      var rem = ver;
+      for (var i=0;i<12;i++) rem = (rem << 1) ^ ((rem >> 11) * 0x1F25);
+      var vbits = (ver << 12) | rem;
+      for (var i2=0;i2<18;i2++){
+        var bit = (vbits >> i2) & 1;
+        var a = Math.floor(i2/3), b = i2 % 3;
+        setF(a, size-11+b, bit);
+        setF(size-11+b, a, bit);
+      }
+    }
+    /* 时序图形 */
+    for (var i=8;i<size-8;i++){ setF(6,i, (i%2===0)?1:0); setF(i,6, (i%2===0)?1:0); }
+    /* 定位图形 */
+    finder(0,0); finder(0,size-7); finder(size-7,0);
+    /* 校正图形 */
+    var ap = ALIGN[ver];
+    for (var a1=0;a1<ap.length;a1++){
+      for (var a2=0;a2<ap.length;a2++){
+        var cr = ap[a1], cc = ap[a2];
+        if ((cr<=8 && cc<=8) || (cr<=8 && cc>=size-9) || (cr>=size-9 && cc<=8)) continue;
+        align(cc,cr);
+      }
+    }
+    /* 格式信息区（含固定深色模块）必须先"占位"，
+       否则数据放置会覆盖格式信息 → 整幅码失效 */
+    (function reserveFormatArea(){
+      for (var i=0;i<9;i++){ setF(i,8,0); setF(8,i,0); }
+      for (var k=0;k<8;k++){
+        if (size-1-k !== 8) setF(8, size-1-k, 0);   /* 避开 (8,8)，它在上面已占 */
+        if (size-1-k !== 8) setF(size-1-k, 8, 0);
+      }
+      setF(size-8, 8, 1);       /* 固定深色模块 */
+    })();
+    versionInfo();
+
+    /* 数据放置（右下起，之字形） */
+    var dir = -1, row = size-1, idx = 0, total = blocks.length * 8;
+    for (var col=size-1; col>0; col-=2){
+      if (col === 6) col = 5;
+      for (;;){
+        for (var c3=0;c3<2;c3++){
+          var cc2 = col - c3;
+          if (!fn[row][cc2]){
+            var bitv = 0;
+            if (idx < total){
+              bitv = (blocks[idx >> 3] >> (7 - (idx & 7))) & 1;
+              idx++;
+            }
+            m[row][cc2] = bitv;
+          }
+        }
+        row += dir;
+        if (row < 0 || row >= size){ row -= dir; dir = -dir; break; }
+      }
+    }
+
+    /* 掩码（8 种取最优罚分） */
+    function maskFn(k,r,c){
+      switch(k){
+        case 0: return (r+c)%2===0;
+        case 1: return r%2===0;
+        case 2: return c%3===0;
+        case 3: return (r+c)%3===0;
+        case 4: return (Math.floor(r/2)+Math.floor(c/3))%2===0;
+        case 5: return ((r*c)%2 + (r*c)%3)===0;
+        case 6: return (((r*c)%2 + (r*c)%3)%2)===0;
+        default: return (((r+c)%2 + (r*c)%3)%2)===0;
+      }
+    }
+    function applyMask(k){
+      fmtInfo(k);
+      for (var r=0;r<size;r++){
+        for (var c=0;c<size;c++){
+          if (!fn[r][c] && maskFn(k,r,c)) m[r][c] ^= 1;
+        }
+      }
+    }
+    function penalty(){
+      var p = 0, r, c, i;
+      /* 规则1：同色连续 */
+      for (r=0;r<size;r++){
+        var run = 1;
+        for (c=1;c<size;c++){
+          if (m[r][c] === m[r][c-1]) { run++; if (run===5) p+=3; else if (run>5) p+=1; }
+          else run = 1;
+        }
+      }
+      for (c=0;c<size;c++){
+        var run2 = 1;
+        for (r=1;r<size;r++){
+          if (m[r][c] === m[r-1][c]) { run2++; if (run2===5) p+=3; else if (run2>5) p+=1; }
+          else run2 = 1;
+        }
+      }
+      /* 规则2：2x2 同色 */
+      for (r=0;r<size-1;r++){
+        for (c=0;c<size-1;c++){
+          var v = m[r][c];
+          if (v === m[r][c+1] && v === m[r+1][c] && v === m[r+1][c+1]) p += 3;
+        }
+      }
+      /* 规则3：1:1:3:1:1 图案 */
+      var pat = [1,0,1,1,1,0,1,0,0,0,0], pat2 = [0,0,0,0,1,0,1,1,1,0,1];
+      function scanLine(get, n){
+        var add = 0;
+        for (var s=0;s<n-10;s++){
+          var ok1 = true, ok2 = true;
+          for (var t=0;t<11;t++){
+            if (get(s+t) !== pat[t]) ok1 = false;
+            if (get(s+t) !== pat2[t]) ok2 = false;
+          }
+          if (ok1) add += 40;
+          if (ok2) add += 40;
+        }
+        return add;
+      }
+      for (r=0;r<size;r++) p += scanLine(function(x){ return m[r][x]; }, size);
+      for (c=0;c<size;c++) p += scanLine(function(x){ return m[x][c]; }, size);
+      /* 规则4：黑模块比例 */
+      var dark = 0;
+      for (r=0;r<size;r++) for (c=0;c<size;c++) dark += m[r][c];
+      var ratio = dark * 100 / (size*size);
+      p += Math.floor(Math.abs(ratio - 50) / 5) * 10;
+      return p;
+    }
+
+    var best = null, bestP = Infinity;
+    for (var k=0;k<8;k++){
+      applyMask(k);
+      var pp = penalty();
+      if (pp < bestP){ bestP = pp; best = m.map(function(rw){ return rw.slice(); }); }
+      applyMask(k);       /* 再异或一次 = 还原 */
+    }
+    return { size: size, matrix: best, version: ver };
+  }
+  return { build: build };
+})();
+
+/* 返回 {ok:true, version} 或 {ok:false, reason:'too-long'} */
+function drawQR(canvas, text){
+  var qr;
+  try { qr = QR.build(text); }
+  catch(e){
+    var ctx0 = canvas.getContext('2d');
+    canvas.width = 232; canvas.height = 232;
+    ctx0.fillStyle = '#fff'; ctx0.fillRect(0,0,232,232);
+    ctx0.fillStyle = '#c23b3b'; ctx0.font = 'bold 13px sans-serif'; ctx0.textAlign = 'center';
+    ctx0.fillText('内容过长', 116, 106);
+    ctx0.fillStyle = '#666'; ctx0.font = '11px sans-serif';
+    ctx0.fillText('最多 213 字节', 116, 128);
+    ctx0.fillText('（本生成器上限 v10）', 116, 146);
+    return { ok: false, reason: 'too-long' };
+  }
+  var quiet = 4, n = qr.size, scale = Math.max(2, Math.floor(canvas.width / (n + quiet*2)));
+  var px = n + quiet*2, dim = px * scale;
+  canvas.width = dim; canvas.height = dim;
+  canvas.style.width = '232px'; canvas.style.height = '232px';
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,dim,dim);
+  ctx.fillStyle = '#050810';
+  for (var r=0;r<n;r++){
+    for (var c=0;c<n;c++){
+      if (qr.matrix[r][c]) ctx.fillRect((c+quiet)*scale, (r+quiet)*scale, scale, scale);
+    }
+  }
+  return { ok: true, version: qr.version };
+}
+
+/* ================================================================
+   9) 事件绑定 & 初始化
+   ================================================================ */
+function initInputs(){
+  var inp = $('numInput');
+  inp.addEventListener('input', function(){
+    var v = sanitize(inp.value);
+    if (inp.value !== v) inp.value = v;
+    stopPlay();
+    if (v.length){ showString(v, true); }
+  });
+  inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') showString(inp.value, true); });
+
+  $('btnShow').addEventListener('click', function(){ showString(inp.value, true); });
+  $('btnClear').addEventListener('click', function(){
+    stopPlay(); state.seq = ''; $('seqInput').value = ''; $('seqPos').textContent = '手动模式';
+    setValue(0x00, true);
+  });
+
+  $('seqInput').addEventListener('input', function(){
+    var v = sanitize($('seqInput').value);
+    if ($('seqInput').value !== v) $('seqInput').value = v;
+    state.seq = v; state.pos = 0;
+    if (v.length){ setValue(charCode(v[0]), true); }
+    updatePos();
+  });
+  $('btnPrev').addEventListener('click', function(){ stopPlay(); stepSeq(-1); });
+  $('btnNext').addEventListener('click', function(){ stopPlay(); stepSeq(1); });
+  $('btnPlay').addEventListener('click', playSeq);
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="drive"]'), function(r){
+    r.addEventListener('change', function(){
+      state.drive = r.value;
+      render(false);
+    });
+  });
+
+  /* 全局键盘：0-9 A-F，左右方向键翻位 */
+  document.addEventListener('keydown', function(e){
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    var k = e.key.toUpperCase();
+    if (FONT[k] !== undefined && k !== ' '){ stopPlay(); state.seq = ''; setValue(FONT[k], true); flashKey(k);
+      $('seqPos').textContent = '手动模式'; }
+    else if (e.key === 'ArrowLeft'){ stopPlay(); stepSeq(-1); }
+    else if (e.key === 'ArrowRight'){ stopPlay(); stepSeq(1); }
+  });
+
+  /* 二维码 */
+  var defaultUrl = location.href.split('#')[0];
+  var qrNote = $('qrNote');
+  function applyQr(target){
+    $('qrUrl').textContent = target;
+    var res = drawQR($('qrCanvas'), target);
+    if (!res.ok){
+      qrNote.textContent = '内容过长：本生成器支持到 v10（Byte 模式最多 213 字节），请缩短内容。';
+      qrNote.style.color = '#ffdca8';
+      return false;
+    }
+    qrNote.textContent = '已生成：版本 v' + res.version + '（' + (res.version * 4 + 17) + '×' + (res.version * 4 + 17) + ' 模块）';
+    qrNote.style.color = '';
+    return true;
+  }
+  applyQr(defaultUrl);
+
+  $('btnQr').addEventListener('click', function(){
+    applyQr($('qrText').value.trim() || defaultUrl);
+  });
+  $('btnQrReset').addEventListener('click', function(){
+    $('qrText').value = '';
+    applyQr(defaultUrl);
+  });
+  $('btnQrDl').addEventListener('click', function(){
+    var a = document.createElement('a');
+    a.download = 'qrcode.png';
+    a.href = $('qrCanvas').toDataURL('image/png');
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+}
+
+(function init(){
+  buildDisplay();
+  buildLights();
+  buildTable();
+  buildKeys();
+  initInputs();
+  state.value = FONT['8'];       /* 默认显示 8（全部 7 段点亮）*/
+  render(false);
+})();
+</script>
+</body>
+</html>
